@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bium-v2';
+const CACHE_NAME = 'bium-v3';
 const ASSETS = [
   '/',
   '/index.html',
