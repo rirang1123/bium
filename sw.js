@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bium-v3';
+const CACHE_NAME = 'bium-v4';
 const ASSETS = [
   '/',
   '/index.html',
@@ -33,6 +33,12 @@ self.addEventListener('activate', function(e) {
 
 // Fetch — cache first, network fallback
 self.addEventListener('fetch', function(e) {
+  // API requests bypass cache
+  if (e.request.url.includes('/api/')) {
+    e.respondWith(fetch(e.request));
+    return;
+  }
+
   e.respondWith(
     caches.match(e.request).then(function(cached) {
       if (cached) return cached;
