@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=overlays-content">
     <title>비움</title>
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#f0eeeb">
@@ -305,7 +305,9 @@
         // ── State ──
         let canvasWidth = 0;
         let canvasHeight = 0;
+        let fullHeight = 0; // Fixed height ignoring keyboard
         let floorY = 0;
+        let spawnY = 0; // Y position where text starts falling (below input)
         let dpr = 1;
         let bodies = [];
         let lastTimestamp = 0;
@@ -317,7 +319,9 @@
         function resizeCanvas() {
             dpr = window.devicePixelRatio || 1;
             canvasWidth = window.innerWidth;
-            canvasHeight = window.innerHeight;
+            // Use fixed full height — ignore keyboard resize
+            if (!fullHeight) fullHeight = window.innerHeight;
+            canvasHeight = fullHeight;
 
             canvas.width = canvasWidth * dpr;
             canvas.height = canvasHeight * dpr;
@@ -326,6 +330,13 @@
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
             floorY = canvasHeight - FLOOR_MARGIN;
+
+            // Spawn below the input area
+            var inputArea = document.getElementById('input-area');
+            if (inputArea) {
+                var rect = inputArea.getBoundingClientRect();
+                spawnY = rect.bottom + 10;
+            }
 
             // Re-settle bodies that are now below the floor
             for (const body of bodies) {
@@ -418,7 +429,7 @@
                 width: dims.width,
                 height: dims.height,
                 x: x,
-                y: -dims.height,
+                y: spawnY || -dims.height,
                 vx: (Math.random() - 0.5) * 30,
                 vy: 0,
                 angle: (Math.random() - 0.5) * angleCap,
