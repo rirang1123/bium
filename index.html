@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
+    <title>비움</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang&family=Noto+Sans+KR:wght@400;500&family=Noto+Sans+JP:wght@400;500&family=Noto+Serif+JP:wght@400&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body {
+            height: 100dvh;
+            overflow: hidden;
+            background: #f0eeeb;
+            font-family: 'Noto Sans KR', 'Noto Sans JP', sans-serif;
+            color: #333;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        #physics-canvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 1;
+        }
+
+        #ui-layer {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 2;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #ui-layer > * {
+            pointer-events: auto;
+        }
+
+        header {
+            padding-top: clamp(24px, 5vh, 48px);
+            text-align: center;
+            pointer-events: none;
+        }
+
+        header h1 {
+            font-family: 'Gowun Batang', serif;
+            font-size: clamp(1.4rem, 4.5vw, 2rem);
+            font-weight: 400;
+            color: #333;
+            letter-spacing: 0.05em;
+        }
+
+        header .subtitle {
+            margin-top: 8px;
+            font-size: clamp(0.8rem, 2.5vw, 0.95rem);
+            color: #999;
+            font-weight: 400;
+        }
+
+        #input-area {
+            margin-top: clamp(12px, 2vh, 24px);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #text-input {
+            width: min(400px, 75vw);
+            padding: 10px 16px;
+            font-size: 16px;
+            font-family: 'Noto Sans KR', sans-serif;
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid #ccc;
+            outline: none;
+            color: #333;
+            text-align: center;
+        }
+
+        #text-input:focus {
+            border-bottom-color: #aaa;
+        }
+
+        #text-input::placeholder {
+            color: #bbb;
+            font-size: 14px;
+        }
+
+        #clear-btn {
+            position: absolute;
+            bottom: clamp(16px, 3vh, 32px);
+            left: 50%;
+            transform: translateX(-50%);
+            font-family: 'Noto Sans KR', sans-serif;
+            font-size: 13px;
+            color: #aaa;
+            background: none;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            padding: 6px 20px;
+            cursor: pointer;
+            transition: color 0.2s, border-color 0.2s, opacity 0.3s;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #clear-btn.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        #clear-btn:hover {
+            color: #777;
+            border-color: #bbb;
+        }
+
+        #clear-btn:active {
+            color: #555;
+        }
+
+        #lang-selector {
+            position: absolute;
+            top: clamp(12px, 2vh, 20px);
+            right: clamp(12px, 3vw, 24px);
+            display: flex;
+            gap: 4px;
+            pointer-events: auto;
+        }
+
+        #lang-selector button {
+            font-family: 'Noto Sans KR', 'Noto Sans JP', sans-serif;
+            font-size: 12px;
+            color: #bbb;
+            background: none;
+            border: 1px solid transparent;
+            border-radius: 12px;
+            padding: 3px 10px;
+            cursor: pointer;
+            transition: color 0.2s, border-color 0.2s;
+        }
+
+        #lang-selector button:hover {
+            color: #888;
+        }
+
+        #lang-selector button.active {
+            color: #777;
+            border-color: #ccc;
+        }
+
+        #comfort-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            opacity: 0;
+        }
+
+        #comfort-text {
+            font-family: 'Gowun Batang', serif;
+            font-size: clamp(1rem, 3.5vw, 1.3rem);
+            color: #555;
+            text-align: center;
+            padding: 0 24px;
+            line-height: 1.8;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="physics-canvas"></canvas>
+
+    <div id="ui-layer">
+        <header>
+            <h1 id="title"></h1>
+            <p class="subtitle" id="subtitle"></p>
+        </header>
+
+        <div id="input-area">
+            <input type="text" id="text-input"
+                   autocomplete="off"
+                   autocorrect="off"
+                   autocapitalize="off"
+                   spellcheck="false"
+                   enterkeyhint="done">
+        </div>
+
+        <button id="clear-btn"></button>
+
+        <div id="lang-selector">
+            <button data-lang="ko">한</button>
+            <button data-lang="en">EN</button>
+            <button data-lang="ja">日</button>
+        </div>
+    </div>
+
+    <div id="comfort-overlay">
+        <p id="comfort-text"></p>
+    </div>
+
+    <script>
+    (function() {
+        'use strict';
+
+        // ── i18n ──
+        const I18N = {
+            ko: {
+                title: '비움',
+                subtitle: '버리고 싶은 것들을 여기에 던져보세요',
+                placeholder: '하루의 무게를 내려놓는 곳',
+                clearBtn: '모두 비우기',
+                serif: "'Gowun Batang', serif",
+                sans: "'Noto Sans KR', sans-serif",
+                comfort: [
+                    '괜찮아요. 오늘도 충분히 잘 버텼어요.',
+                    '내일은 조금 더 가벼운 하루가 되길.',
+                    '버린 만큼 마음이 가벼워지길 바라요.',
+                    '수고했어요. 이제 놓아주세요.',
+                    '무거웠던 것들은 여기 두고 가세요.',
+                    '잘 버렸어요. 내일의 당신은 더 괜찮을 거예요.'
+                ]
+            },
+            en: {
+                title: 'Letting Go',
+                subtitle: 'Drop what weighs you down',
+                placeholder: 'A place to set down the weight of your day',
+                clearBtn: 'Clear all',
+                serif: "Georgia, 'Times New Roman', serif",
+                sans: "'Noto Sans KR', 'Helvetica Neue', Arial, sans-serif",
+                comfort: [
+                    "It's okay. You did enough today.",
+                    'Tomorrow will be a little lighter.',
+                    'You can let it all go now.',
+                    "Well done. It's okay to rest.",
+                    'Leave the heavy things here.',
+                    "You've done well. Tomorrow will be kinder."
+                ]
+            },
+            ja: {
+                title: '手放す',
+                subtitle: '捨てたいものをここに投げてみてください',
+                placeholder: '一日の重さを降ろす場所',
+                clearBtn: 'すべて空にする',
+                serif: "'Noto Serif JP', serif",
+                sans: "'Noto Sans JP', sans-serif",
+                comfort: [
+                    '大丈夫。今日もよく頑張りました。',
+                    '明日はもう少し軽い一日になりますように。',
+                    '手放した分だけ、心が軽くなりますように。',
+                    'お疲れさまでした。もう降ろしていいですよ。',
+                    '重かったものは、ここに置いていってください。',
+                    'よく手放しました。明日のあなたはもっと大丈夫。'
+                ]
+            }
+        };
+
+        function detectLang() {
+            var lang = (navigator.language || navigator.userLanguage || 'ko').toLowerCase();
+            if (lang.startsWith('ja')) return 'ja';
+            if (lang.startsWith('en')) return 'en';
+            return 'ko';
+        }
+
+        var LANG = detectLang();
+        var T = I18N[LANG];
+
+        // ── Constants ──
+        const GRAVITY = 380;
+        const PHYSICS_DT = 1 / 60;
+        const MAX_FRAME_TIME = 0.1;
+        const FONT_SIZE = 17;
+        var FONT = FONT_SIZE + 'px ' + T.sans;
+        const LINE_HEIGHT = FONT_SIZE * 1.45;
+        const TEXT_COLOR_R = 51, TEXT_COLOR_G = 51, TEXT_COLOR_B = 51;
+        const TEXT_OPACITY = 0.7;
+        const FLOOR_MARGIN = 120;
+        const FRICTION = 0.82;
+        const ANGULAR_DAMPING = 0.88;
+        const SETTLE_SPEED = 4;
+        const SETTLE_ANG_SPEED = 0.03;
+        const SETTLE_FRAMES = 5;
+
+        // ── DOM refs ──
+        const canvas = document.getElementById('physics-canvas');
+        const ctx = canvas.getContext('2d');
+        const textInput = document.getElementById('text-input');
+        const clearBtn = document.getElementById('clear-btn');
+        const comfortOverlay = document.getElementById('comfort-overlay');
+        const comfortText = document.getElementById('comfort-text');
+
+        // ── State ──
+        let canvasWidth = 0;
+        let canvasHeight = 0;
+        let floorY = 0;
+        let dpr = 1;
+        let bodies = [];
+        let lastTimestamp = 0;
+        let accumulator = 0;
+        let isClearing = false;
+        let animationId = null;
+
+        // ── Canvas setup ──
+        function resizeCanvas() {
+            dpr = window.devicePixelRatio || 1;
+            canvasWidth = window.innerWidth;
+            canvasHeight = window.innerHeight;
+
+            canvas.width = canvasWidth * dpr;
+            canvas.height = canvasHeight * dpr;
+            canvas.style.width = canvasWidth + 'px';
+            canvas.style.height = canvasHeight + 'px';
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            floorY = canvasHeight - FLOOR_MARGIN;
+
+            // Re-settle bodies that are now below the floor
+            for (const body of bodies) {
+                const aabb = getAABB(body);
+                if (aabb.bottom > floorY) {
+                    body.y -= (aabb.bottom - floorY);
+                }
+                if (body.settled) {
+                    body.settled = false;
+                    body.settleTimer = 0;
+                    body.vy = 0;
+                    body.vx = 0;
+                }
+            }
+        }
+
+        let resizeTimeout;
+        window.addEventListener('resize', function() {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(resizeCanvas, 80);
+        });
+
+        // ── Text measurement & word wrap ──
+        function wrapText(text, maxWidth) {
+            ctx.font = FONT;
+            const chars = Array.from(text);
+            const lines = [];
+            let currentLine = '';
+
+            for (let i = 0; i < chars.length; i++) {
+                const testLine = currentLine + chars[i];
+                const metrics = ctx.measureText(testLine);
+                if (metrics.width > maxWidth && currentLine.length > 0) {
+                    lines.push(currentLine);
+                    currentLine = chars[i];
+                } else {
+                    currentLine = testLine;
+                }
+            }
+            if (currentLine) {
+                lines.push(currentLine);
+            }
+            return lines;
+        }
+
+        function measureBody(lines) {
+            ctx.font = FONT;
+            let maxW = 0;
+            for (const line of lines) {
+                const w = ctx.measureText(line).width;
+                if (w > maxW) maxW = w;
+            }
+            const height = lines.length * LINE_HEIGHT;
+            return { width: maxW, height: height };
+        }
+
+        // ── TextBody ──
+        let nextId = 0;
+
+        const MAX_LINES = 3;
+
+        function createBody(text) {
+            const maxWrapWidth = canvasWidth * 0.6;
+            var lines = wrapText(text, maxWrapWidth);
+
+            // Limit to MAX_LINES, truncate with ellipsis
+            if (lines.length > MAX_LINES) {
+                lines = lines.slice(0, MAX_LINES);
+                var last = lines[MAX_LINES - 1];
+                if (last.length > 1) {
+                    lines[MAX_LINES - 1] = last.slice(0, -1) + '…';
+                }
+            }
+
+            const dims = measureBody(lines);
+
+            const margin = canvasWidth * 0.2;
+            const spawnRange = canvasWidth - 2 * margin;
+            const x = margin + Math.random() * spawnRange;
+
+            // Reduce rotation for tall bodies to prevent "standing" look
+            var aspect = dims.width > 0 ? dims.height / dims.width : 1;
+            var angleCap = aspect > 1.5 ? 0.08 : 0.25;
+            var angVelCap = aspect > 1.5 ? 0.1 : 0.3;
+
+            return {
+                id: nextId++,
+                text: text,
+                lines: lines,
+                width: dims.width,
+                height: dims.height,
+                x: x,
+                y: -dims.height,
+                vx: (Math.random() - 0.5) * 30,
+                vy: 0,
+                angle: (Math.random() - 0.5) * angleCap,
+                angularVel: (Math.random() - 0.5) * angVelCap,
+                settled: false,
+                settleTimer: 0,
+                opacity: TEXT_OPACITY,
+                fadeOut: false
+            };
+        }
+
+        // ── Geometry helpers ──
+        // Get 4 corners of rotated rect: [bottomLeft, bottomRight, topRight, topLeft]
+        function getCorners(body) {
+            var hw = body.width / 2, hh = body.height / 2;
+            var c = Math.cos(body.angle), s = Math.sin(body.angle);
+            // Local corners relative to center (x, y)
+            // bottom-left (-hw, +hh), bottom-right (+hw, +hh)
+            // top-left (-hw, -hh), top-right (+hw, -hh)
+            return [
+                { x: body.x + (-hw * c - hh * s), y: body.y + (-hw * s + hh * c) }, // BL
+                { x: body.x + ( hw * c - hh * s), y: body.y + ( hw * s + hh * c) }, // BR
+                { x: body.x + ( hw * c + hh * s), y: body.y + ( hw * s - hh * c) }, // TR
+                { x: body.x + (-hw * c + hh * s), y: body.y + (-hw * s - hh * c) }  // TL
+            ];
+        }
+
+        // Get the bottom edge: the two corners with highest Y
+        function getBottomEdge(body) {
+            var corners = getCorners(body);
+            // Sort by Y descending (highest Y = bottom)
+            corners.sort(function(a, b) { return b.y - a.y; });
+            return { p1: corners[0], p2: corners[1] };
+        }
+
+        // Get lowest Y point of body (the very bottom)
+        function getLowestY(body) {
+            var corners = getCorners(body);
+            var maxY = corners[0].y;
+            for (var i = 1; i < 4; i++) {
+                if (corners[i].y > maxY) maxY = corners[i].y;
+            }
+            return maxY;
+        }
+
+        // AABB from corners for broad-phase
+        function getAABB(body) {
+            var corners = getCorners(body);
+            var minX = corners[0].x, maxX = corners[0].x;
+            var minY = corners[0].y, maxY = corners[0].y;
+            for (var i = 1; i < 4; i++) {
+                if (corners[i].x < minX) minX = corners[i].x;
+                if (corners[i].x > maxX) maxX = corners[i].x;
+                if (corners[i].y < minY) minY = corners[i].y;
+                if (corners[i].y > maxY) maxY = corners[i].y;
+            }
+            return { left: minX, right: maxX, top: minY, bottom: maxY };
+        }
+
+        // ── Collision resolution ──
+        function resolveFloorCollision(body) {
+            var bottomY = getLowestY(body);
+            if (bottomY > floorY) {
+                body.y -= (bottomY - floorY);
+                body.vy = 0;
+                body.vx *= 0.15;
+                body.angularVel *= 0.15;
+            }
+        }
+
+        function resolveWallCollisions(body) {
+            var aabb = getAABB(body);
+            if (aabb.left < 0) {
+                body.x += (0 - aabb.left);
+                body.vx = Math.abs(body.vx) * 0.2;
+            }
+            if (aabb.right > canvasWidth) {
+                body.x -= (aabb.right - canvasWidth);
+                body.vx = -Math.abs(body.vx) * 0.2;
+            }
+        }
+
+        // Check if body's bottom edge contacts a surface (floor or other body top)
+        function getBottomSupport(body) {
+            var edge = getBottomEdge(body);
+            var edgeMinX = Math.min(edge.p1.x, edge.p2.x);
+            var edgeMaxX = Math.max(edge.p1.x, edge.p2.x);
+            var edgeY = Math.max(edge.p1.y, edge.p2.y);
+
+            // Check floor
+            if (edgeY >= floorY - 2) {
+                return { supported: true, surfaceY: floorY, supportX: (edgeMinX + edgeMaxX) / 2, isFloor: true };
+            }
+
+            // Check other bodies — is this body's bottom edge resting on another body's top?
+            var bestSupport = null;
+            for (var i = 0; i < bodies.length; i++) {
+                var other = bodies[i];
+                if (other.id === body.id || other.fadeOut) continue;
+
+                var otherAABB = getAABB(other);
+                // Bottom edge must be near the top of the other body's AABB
+                if (edgeY >= otherAABB.top - 2 && edgeY <= otherAABB.top + 6) {
+                    // Check horizontal overlap between bottom edge and other body
+                    var overlapLeft = Math.max(edgeMinX, otherAABB.left);
+                    var overlapRight = Math.min(edgeMaxX, otherAABB.right);
+                    if (overlapRight > overlapLeft) {
+                        var overlapWidth = overlapRight - overlapLeft;
+                        var edgeWidth = edgeMaxX - edgeMinX;
+                        var ratio = edgeWidth > 0 ? overlapWidth / edgeWidth : 0;
+                        if (!bestSupport || ratio > bestSupport.ratio) {
+                            bestSupport = {
+                                supported: true,
+                                ratio: ratio,
+                                surfaceY: otherAABB.top,
+                                supportCenterX: (overlapLeft + overlapRight) / 2,
+                                otherBody: other,
+                                isFloor: false
+                            };
+                        }
+                    }
+                }
+            }
+            return bestSupport;
+        }
+
+        function resolveBodyCollisions(body) {
+            var aabb = getAABB(body);
+
+            for (var i = 0; i < bodies.length; i++) {
+                var other = bodies[i];
+                if (other.id === body.id || other.fadeOut) continue;
+
+                var otherAABB = getAABB(other);
+
+                // Broad-phase AABB check
+                if (aabb.left >= otherAABB.right ||
+                    aabb.right <= otherAABB.left ||
+                    aabb.top >= otherAABB.bottom ||
+                    aabb.bottom <= otherAABB.top) continue;
+
+                var overlapX = Math.min(aabb.right - otherAABB.left, otherAABB.right - aabb.left);
+                var overlapY = Math.min(aabb.bottom - otherAABB.top, otherAABB.bottom - aabb.top);
+
+                if (overlapY <= overlapX) {
+                    // Vertical collision — land on top
+                    if (body.y < other.y) {
+                        body.y -= overlapY;
+                    } else {
+                        body.y += overlapY;
+                    }
+
+                    // Check bottom-edge support
+                    var edgeInfo = getBottomEdge(body);
+                    var edgeMinX = Math.min(edgeInfo.p1.x, edgeInfo.p2.x);
+                    var edgeMaxX = Math.max(edgeInfo.p1.x, edgeInfo.p2.x);
+                    var suppLeft = Math.max(edgeMinX, otherAABB.left);
+                    var suppRight = Math.min(edgeMaxX, otherAABB.right);
+                    var suppWidth = Math.max(0, suppRight - suppLeft);
+                    var edgeWidth = Math.max(1, edgeMaxX - edgeMinX);
+                    var supportRatio = suppWidth / edgeWidth;
+
+                    if (supportRatio < 0.25) {
+                        // Bottom edge barely on the surface — tilt off
+                        // Torque: center of mass is offset from support point
+                        var supportX = (suppLeft + suppRight) / 2;
+                        var offset = body.x - supportX;
+                        var tiltDir = offset > 0 ? 1 : -1;
+                        body.vx += tiltDir * 25;
+                        body.vy = 10;
+                        body.angularVel += tiltDir * 0.6;
+                    } else {
+                        // Stable landing
+                        body.vy = 0;
+                        body.vx *= 0.2;
+                        body.angularVel *= 0.2;
+                    }
+                } else {
+                    // Horizontal collision — nudge aside
+                    if (body.x < other.x) {
+                        body.x -= overlapX * 0.5;
+                    } else {
+                        body.x += overlapX * 0.5;
+                    }
+                    body.vx *= 0.2;
+                }
+
+                // Refresh AABB after resolution
+                aabb = getAABB(body);
+            }
+        }
+
+        function checkSettled(body) {
+            var speed = Math.sqrt(body.vx * body.vx + body.vy * body.vy);
+            var angSpeed = Math.abs(body.angularVel);
+
+            if (speed < SETTLE_SPEED && angSpeed < SETTLE_ANG_SPEED) {
+                // Only settle if bottom edge is actually on something
+                var support = getBottomSupport(body);
+                if (support && support.supported) {
+                    body.settleTimer = (body.settleTimer || 0) + 1;
+                    if (body.settleTimer > SETTLE_FRAMES) {
+                        body.settled = true;
+                        body.vx = 0;
+                        body.vy = 0;
+                        body.angularVel = 0;
+                    }
+                } else {
+                    body.settleTimer = 0;
+                }
+            } else {
+                body.settleTimer = 0;
+            }
+        }
+
+        // ── Physics update ──
+        function updatePhysics(dt) {
+            for (var i = 0; i < bodies.length; i++) {
+                var body = bodies[i];
+                if (body.settled || body.fadeOut) continue;
+
+                // Gravity
+                body.vy += GRAVITY * dt;
+                body.x += body.vx * dt;
+                body.y += body.vy * dt;
+                body.angle += body.angularVel * dt;
+                body.angularVel *= ANGULAR_DAMPING;
+                body.vx *= FRICTION;
+
+                // Torque from center-of-mass offset when on a support
+                var support = getBottomSupport(body);
+                if (support && support.supported && !support.isFloor) {
+                    var comOffset = body.x - support.supportCenterX;
+                    // Apply gentle torque: heavier side tips down
+                    body.angularVel += comOffset * 0.002;
+                }
+
+                // Gently tilt toward horizontal movement direction during free fall
+                if (!support && Math.abs(body.vx) > 5) {
+                    var tiltTarget = body.vx * 0.003;
+                    body.angularVel += (tiltTarget - body.angle) * 0.03;
+                }
+
+                resolveFloorCollision(body);
+                resolveWallCollisions(body);
+                resolveBodyCollisions(body);
+
+                // Ceiling
+                var aabb = getAABB(body);
+                if (aabb.top < 0) {
+                    body.y += (0 - aabb.top);
+                    body.vy = Math.abs(body.vy) * 0.1;
+                }
+
+                checkSettled(body);
+            }
+        }
+
+        // ── Render ──
+        function render() {
+            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+            for (let i = 0; i < bodies.length; i++) {
+                const body = bodies[i];
+                if (body.opacity <= 0) continue;
+
+                ctx.save();
+                ctx.translate(body.x, body.y);
+                ctx.rotate(body.angle);
+                ctx.font = FONT;
+                ctx.fillStyle = `rgba(${TEXT_COLOR_R},${TEXT_COLOR_G},${TEXT_COLOR_B},${body.opacity})`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                if (body.lines.length === 1) {
+                    ctx.fillText(body.lines[0], 0, 0);
+                } else {
+                    const totalH = body.lines.length * LINE_HEIGHT;
+                    const startY = -totalH / 2 + LINE_HEIGHT / 2;
+                    for (let j = 0; j < body.lines.length; j++) {
+                        ctx.fillText(body.lines[j], 0, startY + j * LINE_HEIGHT);
+                    }
+                }
+
+                ctx.restore();
+            }
+        }
+
+        // ── Game loop ──
+        function gameLoop(timestamp) {
+            const frameTime = Math.min((timestamp - lastTimestamp) / 1000, MAX_FRAME_TIME);
+            lastTimestamp = timestamp;
+            accumulator += frameTime;
+
+            while (accumulator >= PHYSICS_DT) {
+                updatePhysics(PHYSICS_DT);
+                accumulator -= PHYSICS_DT;
+            }
+
+            render();
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        // ── Spawn text ──
+        function spawnText(text) {
+            const body = createBody(text);
+            bodies.push(body);
+            updateUI();
+        }
+
+        // ── UI updates ──
+        function updateUI() {
+            if (bodies.length > 0 && !isClearing) {
+                clearBtn.classList.add('visible');
+            } else {
+                clearBtn.classList.remove('visible');
+            }
+        }
+
+        // ── Fade out animation for a single body ──
+        function fadeOutBody(body, duration) {
+            const startOpacity = body.opacity;
+            const startTime = performance.now();
+
+            function tick() {
+                const elapsed = performance.now() - startTime;
+                const t = Math.min(elapsed / duration, 1);
+                const ease = 1 - Math.pow(1 - t, 3);
+                body.opacity = startOpacity * (1 - ease);
+                if (t < 1) {
+                    requestAnimationFrame(tick);
+                }
+            }
+            requestAnimationFrame(tick);
+        }
+
+        // ── Clear all ──
+        function clearAll() {
+            if (isClearing || bodies.length === 0) return;
+            isClearing = true;
+            clearBtn.classList.remove('visible');
+
+            const sorted = bodies.slice().sort(function(a, b) { return a.y - b.y; });
+            const stagger = 60;
+            const fadeDuration = 400;
+
+            for (let i = 0; i < sorted.length; i++) {
+                (function(index) {
+                    setTimeout(function() {
+                        sorted[index].fadeOut = true;
+                        fadeOutBody(sorted[index], fadeDuration);
+                    }, index * stagger);
+                })(i);
+            }
+
+            const totalTime = sorted.length * stagger + fadeDuration + 300;
+
+            setTimeout(function() {
+                bodies = [];
+                updateUI();
+                showComfortMessage();
+            }, totalTime);
+        }
+
+        // ── Comfort message ──
+        function showComfortMessage() {
+            const msg = T.comfort[Math.floor(Math.random() * T.comfort.length)];
+            comfortText.textContent = msg;
+
+            // Fade in
+            comfortOverlay.style.transition = 'opacity 0.8s ease-in';
+            comfortOverlay.style.opacity = '1';
+
+            setTimeout(function() {
+                // Fade out
+                comfortOverlay.style.transition = 'opacity 0.8s ease-out';
+                comfortOverlay.style.opacity = '0';
+
+                setTimeout(function() {
+                    isClearing = false;
+                    updateUI();
+                }, 800);
+            }, 800 + 2500);
+        }
+
+        // ── Input handling ──
+        textInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const text = textInput.value.trim();
+                if (text && !isClearing) {
+                    spawnText(text);
+                    textInput.value = '';
+                }
+            }
+        });
+
+        clearBtn.addEventListener('click', function() {
+            clearAll();
+            // Return focus to input
+            setTimeout(function() { textInput.focus(); }, 100);
+        });
+
+        // ── Initialize ──
+        function applyLocale() {
+            document.documentElement.lang = LANG;
+            document.title = T.title;
+            document.getElementById('title').textContent = T.title;
+            document.getElementById('subtitle').textContent = T.subtitle;
+            textInput.placeholder = T.placeholder;
+            clearBtn.textContent = T.clearBtn;
+
+            // Apply locale fonts to CSS
+            document.getElementById('title').style.fontFamily = T.serif;
+            document.getElementById('comfort-text').style.fontFamily = T.serif;
+            textInput.style.fontFamily = T.sans;
+            clearBtn.style.fontFamily = T.sans;
+        }
+
+        function updateLangButtons() {
+            var btns = document.querySelectorAll('#lang-selector button');
+            for (var i = 0; i < btns.length; i++) {
+                if (btns[i].getAttribute('data-lang') === LANG) {
+                    btns[i].classList.add('active');
+                } else {
+                    btns[i].classList.remove('active');
+                }
+            }
+        }
+
+        function switchLang(newLang) {
+            if (newLang === LANG || !I18N[newLang]) return;
+            LANG = newLang;
+            T = I18N[LANG];
+            FONT = FONT_SIZE + 'px ' + T.sans;
+            applyLocale();
+            updateLangButtons();
+        }
+
+        // Wire up lang selector buttons
+        document.getElementById('lang-selector').addEventListener('click', function(e) {
+            var btn = e.target.closest('button[data-lang]');
+            if (btn) switchLang(btn.getAttribute('data-lang'));
+        });
+
+        function init() {
+            applyLocale();
+            updateLangButtons();
+            resizeCanvas();
+
+            document.fonts.ready.then(function() {
+                textInput.disabled = false;
+                textInput.focus();
+
+                lastTimestamp = performance.now();
+                animationId = requestAnimationFrame(gameLoop);
+            });
+        }
+
+        // Disable input until fonts load
+        textInput.disabled = true;
+        init();
+    })();
+    </script>
+</body>
+</html>
